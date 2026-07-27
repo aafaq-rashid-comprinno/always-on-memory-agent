@@ -1,0 +1,42 @@
+services:
+  agent:
+    build: .
+    container_name: memory-agent
+    ports:
+      - "${PORT:-8888}:8888"
+    volumes:
+      - ./inbox:/app/inbox
+      - ./data:/app/data
+    environment:
+      # AWS Credentials (from exported terminal env vars)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Agent config
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
+      - MEMORY_DB=/app/data/memory.db
+      - WATCH_DIR=/app/inbox
+      - PORT=8888
+      - MAX_TOKENS=${MAX_TOKENS:-1024}
+      - CONSOLIDATE_INTERVAL=${CONSOLIDATE_INTERVAL:-30}
+    command: python -m src.main
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8888/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build: .
+    container_name: memory-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - AGENT_URL=http://agent:8888
+    command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    depends_on:
+      agent:
+        condition: service_healthy
+    restart: unless-stopped
