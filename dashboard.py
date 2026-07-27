@@ -113,27 +113,30 @@ tab_query, tab_ingest, tab_memories, tab_insights = st.tabs(["💬 Query", "📥
 # ─── Query Tab ─────────────────────────────────────────────────
 
 with tab_query:
-    st.header("Ask Your Memory")
-
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    # Display chat history in a scrollable container
+    chat_container = st.container(height=500)
+    with chat_container:
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
+    # Chat input stays at bottom
     if prompt := st.chat_input("What do you want to know?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                result = api_get("/query", params={"q": prompt})
-                if result:
-                    answer = result.get("answer", "No response")
-                    st.markdown(answer)
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    result = api_get("/query", params={"q": prompt})
+                    if result:
+                        answer = result.get("answer", "No response")
+                        st.markdown(answer)
+                        st.session_state.messages.append({"role": "assistant", "content": answer})
 
 # ─── Ingest Tab ────────────────────────────────────────────────
 
