@@ -39,6 +39,14 @@ class Settings:
     db_path: str = field(
         default_factory=lambda: os.getenv("MEMORY_DB", "data/memory.db")
     )
+    database_url: str = field(
+        default_factory=lambda: os.getenv("DATABASE_URL", "")
+    )
+
+    @property
+    def use_postgres(self) -> bool:
+        """True if a PostgreSQL DATABASE_URL is configured."""
+        return self.database_url.startswith("postgresql")
 
     # ─── Server ────────────────────────────────────────────────
     host: str = field(

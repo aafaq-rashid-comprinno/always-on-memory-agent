@@ -12,7 +12,7 @@ from src.config.constants import (
     DOCUMENT_EXTENSIONS,
     SYSTEM_PROMPTS,
 )
-from src.db.repository import MemoryRepository
+from src.db import get_repository
 from src.tools.definitions import TOOL_MAP
 from src.tools.executor import ToolExecutor
 from src.agents.client import BedrockClient
@@ -32,7 +32,7 @@ class MemoryAgent:
 
     def __init__(self):
         self._settings = get_settings()
-        self._repo = MemoryRepository()
+        self._repo = get_repository()
         self._executor = ToolExecutor(self._repo)
         self._client = BedrockClient(self._executor)
 

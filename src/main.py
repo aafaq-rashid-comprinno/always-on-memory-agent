@@ -21,7 +21,7 @@ import sys
 from aiohttp import web
 
 from src.config import get_settings
-from src.db import init_db
+from src.db import init_database
 from src.agents import MemoryAgent
 from src.api import create_app
 from src.watcher import watch_folder, consolidation_loop
@@ -39,7 +39,7 @@ async def run(args: argparse.Namespace) -> None:
     settings = get_settings()
 
     # Initialize database schema
-    init_db()
+    init_database()
 
     # Create the agent
     agent = MemoryAgent()
