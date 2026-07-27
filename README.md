@@ -16,7 +16,7 @@ An always-on AI memory agent that continuously processes, consolidates, and conn
                   Discovers connections you never asked about
 
 3. QUERY      →  Ask anything. Gets a synthesized answer with citations.
-                  FTS5 pre-filters relevant memories for speed.
+                  Full-text search pre-filters relevant memories for speed.
 ```
 
 ## Quick Start
@@ -51,9 +51,12 @@ make dashboard    # Terminal 2: UI
 
 ### Dashboard (http://localhost:8501)
 
-- **Query tab** — Chat with your memory ("What patterns do you see?")
-- **Ingest tab** — Paste text or upload files
-- **Memories tab** — Browse, inspect, delete stored memories
+| Tab | Purpose |
+|---|---|
+| 💬 Query | Chat with your memory |
+| 📥 Ingest | Paste text or upload files |
+| 📚 Memories | Browse, inspect, delete memories |
+| 💡 Insights | View consolidation patterns and connections |
 
 ### API
 
@@ -66,14 +69,14 @@ curl -X POST http://localhost:8888/ingest \
 # Query
 curl "http://localhost:8888/query?q=what+do+you+know"
 
-# Stream (SSE)
+# Stream (Server-Sent Events)
 curl -N "http://localhost:8888/query/stream?q=summarize+everything"
-
-# Consolidate
-curl -X POST http://localhost:8888/consolidate
 
 # View insights
 curl http://localhost:8888/consolidations
+
+# Consolidate
+curl -X POST http://localhost:8888/consolidate
 
 # Status
 curl http://localhost:8888/status
@@ -82,9 +85,9 @@ curl http://localhost:8888/status
 ### File Drop
 
 ```bash
-cp notes.md inbox/
-cp diagram.png inbox/
-cp report.pdf inbox/
+cp notes.md inbox/        # text
+cp diagram.png inbox/     # images
+cp report.pdf inbox/      # documents
 # Auto-ingested within 5 seconds
 ```
 
@@ -94,11 +97,41 @@ cp report.pdf inbox/
 |---|---|
 | **Chunking** | Large files auto-split into 3000-char segments |
 | **Deduplication** | SHA256 hash prevents storing the same content twice |
-| **FTS5 Search** | Full-text pre-filtering for fast, relevant queries |
+| **Full-Text Search** | FTS5 (SQLite) or tsvector (PostgreSQL) pre-filtering |
 | **Streaming** | Server-Sent Events for real-time query responses |
-| **Multimodal** | Images and PDFs via inbox folder (Claude/Nova Lite) |
+| **Multimodal** | Images and PDFs via inbox folder |
 | **Auto-retry** | Exponential backoff on transient Bedrock errors |
 | **Consolidation** | Periodic pattern discovery across memories |
+| **Dual Database** | SQLite (default) or PostgreSQL via `DATABASE_URL` |
+
+## Database Options
+
+### SQLite (default - zero config)
+
+Just works. Data stored in `data/memory.db`. Good for personal use.
+
+### PostgreSQL (managed, persistent, scalable)
+
+Set `DATABASE_URL` to switch:
+
+```bash
+# Amazon RDS / Aurora
+DATABASE_URL=postgresql://admin:secret@mydb.xxx.us-east-1.rds.amazonaws.com:5432/memorydb
+
+# Supabase
+DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
+
+# Neon (serverless)
+DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/memorydb
+
+# Railway
+DATABASE_URL=postgresql://postgres:pass@containers-xxx.railway.app:5432/railway
+
+# Local
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/memorydb
+```
+
+PostgreSQL uses native JSONB columns, tsvector full-text search, and proper timestamps. The agent auto-detects which backend to use based on whether `DATABASE_URL` is set.
 
 ## API Reference
 
@@ -107,7 +140,7 @@ cp report.pdf inbox/
 | `/health` | GET | Health check + model info |
 | `/status` | GET | Memory counts |
 | `/memories` | GET | List all memories |
-| `/consolidations` | GET | List all insights |
+| `/consolidations` | GET | List all insights and patterns |
 | `/query?q=...` | GET | Query with natural language |
 | `/query/stream?q=...` | GET | Streaming query (SSE) |
 | `/ingest` | POST | Store text `{"text": "...", "source": "..."}` |
@@ -119,55 +152,61 @@ cp report.pdf inbox/
 
 | Model | Multimodal | Cost | Notes |
 |---|---|---|---|
-| `us.anthropic.claude-haiku-4-5-20251001-v1:0` | ✅ | Low | Default, reliable tool use |
+| `us.anthropic.claude-haiku-4-5-20251001-v1:0` | ✅ | Low | **Default** - reliable tool use |
 | `us.amazon.nova-lite-v1:0` | ✅ Images | Lowest | Occasional tool errors |
 | `us.amazon.nova-micro-v1:0` | ❌ | Lowest | Text only |
 | `us.anthropic.claude-sonnet-4-6-20250514-v1:0` | ✅ | Medium | Best quality |
 
+## Configuration
+
+All settings via `.env` or environment variables. CLI flags override env vars.
+
+```bash
+python -m src.main --model us.amazon.nova-lite-v1:0 --port 9000 --watch ./docs
+```
+
+Key variables (see [.env.example](.env.example) for full list):
+
+| Variable | Default | Description |
+|---|---|---|
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Bedrock model |
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `DATABASE_URL` | _(unset = SQLite)_ | PostgreSQL connection string |
+| `MEMORY_DB` | `data/memory.db` | SQLite path (when no DATABASE_URL) |
+| `PORT` | `8888` | API port |
+| `WATCH_DIR` | `./inbox` | Auto-ingest folder |
+| `CONSOLIDATE_INTERVAL` | `30` | Minutes between consolidation |
+| `MAX_TOKENS` | `2048` | Max output tokens per LLM call |
+
 ## Architecture
 
 ```
-always-on-memory-agent/
-├── src/
-│   ├── config/          # Settings + constants (env-driven)
-│   ├── db/              # SQLite + FTS5 + repository pattern
-│   ├── tools/           # Bedrock tool schemas + executor
-│   ├── agents/          # Bedrock client + MemoryAgent + chunking
-│   ├── api/             # HTTP routes (aiohttp)
-│   ├── watcher/         # File watcher + consolidation loop
-│   └── main.py          # Entry point
-├── dashboard.py         # Streamlit UI
-├── docs/                # Detailed documentation
-│   ├── 01-use-case.md       # 6 detailed use case scenarios
-│   ├── 02-solution.md       # Technical approach + data flow
-│   ├── 03-architecture.md   # System design + module layers
-│   ├── 04-challenges.md     # 10 challenges with mitigations
-│   └── 05-research-paper.md # Academic-style paper with evaluation
-├── tests/               # Unit tests
-├── Dockerfile
-├── docker-compose.yml
-├── Makefile
-└── pyproject.toml
+src/
+├── config/          Settings + constants (env-driven)
+├── db/              SQLite + PostgreSQL backends, repository pattern
+│   ├── connection.py      SQLite schema + connection
+│   ├── repository.py      SQLite CRUD + FTS5
+│   ├── postgres.py        PostgreSQL schema + connection
+│   └── pg_repository.py   PostgreSQL CRUD + tsvector
+├── tools/           Bedrock tool schemas + executor
+├── agents/          Bedrock client + MemoryAgent + chunking
+│   ├── client.py          Converse API + retry + streaming
+│   ├── memory_agent.py    High-level interface
+│   └── chunking.py        Text splitting + dedup hashing
+├── api/             HTTP routes (aiohttp)
+├── watcher/         File watcher + consolidation loop
+└── main.py          Entry point
 ```
 
 ## Documentation
 
 | Doc | Contents |
 |---|---|
-| [Use Cases](docs/01-use-case.md) | 6 detailed scenarios with examples |
+| [Use Cases](docs/01-use-case.md) | 6 detailed scenarios with step-by-step examples |
 | [Solution](docs/02-solution.md) | Technical approach, why not RAG, data flow |
 | [Architecture](docs/03-architecture.md) | Module layers, DB schema, concurrency model |
 | [Challenges](docs/04-challenges.md) | 10 known limitations with mitigations |
 | [Research Paper](docs/05-research-paper.md) | Academic treatment with evaluation results |
-
-## Configuration
-
-All settings via `.env` or environment variables. See [.env.example](.env.example).
-
-CLI flags override env vars:
-```bash
-python -m src.main --model us.amazon.nova-lite-v1:0 --port 9000 --watch ./docs
-```
 
 ## AWS Prerequisites
 
@@ -188,6 +227,7 @@ make clean         # Reset database
 ## Makefile Commands
 
 ```
+make help          Show all commands
 make run           Start agent locally
 make dashboard     Start Streamlit UI
 make docker-up     Docker Compose up
@@ -196,6 +236,7 @@ make docker-logs   Tail logs
 make test          Run tests
 make lint          Lint code
 make clean         Reset database
+make install       Install dependencies
 ```
 
 ## License

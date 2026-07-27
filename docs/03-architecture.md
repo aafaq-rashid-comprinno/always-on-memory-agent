@@ -98,35 +98,95 @@ No circular dependencies. No upward references.
 
 ## Database Schema
 
+The agent supports two backends, auto-selected by configuration:
+
+### SQLite (default - `MEMORY_DB` path)
+
 ```sql
 -- Core memory storage
 memories (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    source          TEXT,        -- origin (filename, "api", "dashboard")
-    raw_text        TEXT,        -- original or described content
-    summary         TEXT,        -- LLM-generated 1-2 sentence summary
-    entities        TEXT (JSON), -- ["person", "company", ...]
-    topics          TEXT (JSON), -- ["ai", "strategy", ...]
-    connections     TEXT (JSON), -- [{linked_to: id, relationship: "..."}]
-    importance      REAL,        -- 0.0 to 1.0
-    created_at      TEXT (ISO),  -- UTC timestamp
-    consolidated    INTEGER      -- 0 = pending, 1 = processed
+    source          TEXT,
+    raw_text        TEXT,
+    summary         TEXT,
+    entities        TEXT (JSON),
+    topics          TEXT (JSON),
+    connections     TEXT (JSON),
+    importance      REAL,
+    created_at      TEXT (ISO),
+    consolidated    INTEGER
 )
+
+-- FTS5 virtual table for full-text search
+memories_fts (summary, entities, topics)
 
 -- Consolidation insights
 consolidations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_ids      TEXT (JSON), -- [1, 2, 3] memory IDs consolidated
-    summary         TEXT,        -- cross-cutting summary
-    insight         TEXT,        -- key pattern discovered
+    source_ids      TEXT (JSON),
+    summary         TEXT,
+    insight         TEXT,
     created_at      TEXT (ISO)
 )
 
--- Processed file tracking (prevent re-ingestion)
+-- Deduplication
+content_hashes (
+    hash            TEXT PRIMARY KEY,
+    created_at      TEXT (ISO)
+)
+
+-- File tracking
 processed_files (
     path            TEXT PRIMARY KEY,
     processed_at    TEXT (ISO)
 )
+```
+
+### PostgreSQL (`DATABASE_URL` set)
+
+```sql
+-- Core memory storage (JSONB + tsvector)
+memories (
+    id              SERIAL PRIMARY KEY,
+    source          TEXT,
+    raw_text        TEXT,
+    summary         TEXT,
+    entities        JSONB,        -- native JSON, queryable
+    topics          JSONB,
+    connections     JSONB,
+    importance      REAL,
+    created_at      TIMESTAMPTZ,  -- proper timezone support
+    consolidated    BOOLEAN
+)
+
+-- GIN index for full-text search
+CREATE INDEX idx_memories_fts ON memories
+    USING GIN (to_tsvector('english', summary || ' ' || source));
+
+-- Same supporting tables with PostgreSQL types
+consolidations (id SERIAL, source_ids JSONB, ...)
+content_hashes (hash TEXT PRIMARY KEY, ...)
+processed_files (path TEXT PRIMARY KEY, ...)
+```
+
+### Backend Selection
+
+```
+┌─────────────────────────────────────────────────────┐
+│              src/db/__init__.py                       │
+│                                                     │
+│  get_repository()                                   │
+│    │                                                │
+│    ├── DATABASE_URL set? ──► PostgresRepository     │
+│    │                         (pg_repository.py)     │
+│    │                                                │
+│    └── No DATABASE_URL ──► MemoryRepository         │
+│                             (repository.py)         │
+│                                                     │
+│  Both implement the same interface:                  │
+│    store_memory, get_all_memories, search_memories,  │
+│    store_consolidation, is_duplicate, etc.           │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Bedrock Integration

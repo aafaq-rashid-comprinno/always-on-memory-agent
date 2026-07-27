@@ -71,14 +71,18 @@ Reads all memories + consolidation history, then generates a grounded response. 
 
 | Component | Choice | Rationale |
 |---|---|---|
-| LLM | AWS Bedrock (Nova Lite) | Cheapest multimodal, managed, no infra |
+| LLM | AWS Bedrock (Claude Haiku 4.5) | Reliable tool use, multimodal, managed |
 | API style | Bedrock Converse + tool use | Unified across models, structured output |
-| Storage | SQLite | Zero-config, single-file, portable |
-| HTTP | aiohttp | Async, lightweight, production-ready |
+| Storage | SQLite or PostgreSQL | SQLite for dev, Postgres for production |
+| Search | FTS5 (SQLite) / tsvector (Postgres) | Built-in, no extra infrastructure |
+| HTTP | aiohttp | Async, lightweight, SSE streaming support |
+| Streaming | Server-Sent Events (SSE) | Native browser support, simple protocol |
 | Background tasks | asyncio | Native Python, no Celery/Redis needed |
 | Dashboard | Streamlit | Fast to build, good enough for demo |
 | Packaging | Docker Compose | Agent + Dashboard as isolated services |
 | Config | python-dotenv + dataclass | Type-safe, env-var driven, 12-factor |
+| Deduplication | SHA256 content hashing | Fast, collision-resistant |
+| Chunking | Paragraph-aware splitting | Preserves context at boundaries |
 
 ## Data Flow
 
