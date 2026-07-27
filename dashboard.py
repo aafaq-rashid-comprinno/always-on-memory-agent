@@ -108,7 +108,7 @@ with st.sidebar:
 
 # ─── Main Tabs ─────────────────────────────────────────────────
 
-tab_query, tab_ingest, tab_memories = st.tabs(["💬 Query", "📥 Ingest", "📚 Memories"])
+tab_query, tab_ingest, tab_memories, tab_insights = st.tabs(["💬 Query", "📥 Ingest", "📚 Memories", "💡 Insights"])
 
 # ─── Query Tab ─────────────────────────────────────────────────
 
@@ -217,6 +217,39 @@ with tab_memories:
                     f"Importance: {importance:.1f} | "
                     f"Created: {mem.get('created_at', '')[:16]}"
                 )
+
+# ─── Insights Tab ──────────────────────────────────────────────
+
+with tab_insights:
+    st.header("💡 Consolidation Insights")
+    st.caption("Patterns and connections discovered across your memories (like the brain during sleep).")
+
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("🔄 Refresh Insights"):
+            st.rerun()
+
+    data = api_get("/consolidations")
+    if not data or not data.get("consolidations"):
+        st.info(
+            "No insights yet. Ingest 2+ memories and click **Consolidate Now** in the sidebar "
+            "to discover patterns."
+        )
+    else:
+        consolidations = data["consolidations"]
+        st.caption(f"{len(consolidations)} consolidation(s)")
+
+        for i, cons in enumerate(consolidations, 1):
+            with st.expander(f"💡 Insight #{i}: {cons['insight'][:80]}", expanded=(i == 1)):
+                st.markdown(f"### Insight")
+                st.info(cons["insight"])
+
+                st.markdown(f"### Summary")
+                st.write(cons["summary"])
+
+                source_ids = cons.get("source_ids", [])
+                if source_ids:
+                    st.caption(f"🔗 Based on memories: {', '.join(f'#{mid}' for mid in source_ids)}")
 
 # ─── Footer ───────────────────────────────────────────────────
 
