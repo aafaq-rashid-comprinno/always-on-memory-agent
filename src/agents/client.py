@@ -140,3 +140,99 @@ class BedrockClient:
                     }
                 })
         return tool_results
+
+    def invoke_stream(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: list[dict],
+    ):
+        """
+        Invoke Bedrock ConverseStream for streaming token output.
+
+        Handles tool use internally (tools executed between rounds,
+        only final text is streamed).
+
+        Yields:
+            str: Text chunks as they are generated.
+        """
+        import json as json_mod
+
+        user_content = [{"text": user_message}]
+        messages = [{"role": "user", "content": user_content}]
+
+        for round_num in range(self._max_rounds):
+            kwargs = {
+                "modelId": self._model_id,
+                "system": [{"text": system_prompt}],
+                "messages": messages,
+                "inferenceConfig": {"maxTokens": self._max_tokens},
+            }
+            if tools:
+                kwargs["toolConfig"] = {"tools": tools}
+
+            try:
+                response = self._client.converse_stream(**kwargs)
+            except Exception as e:
+                log.error(f"Stream error: {e}")
+                yield f"Error: {e}"
+                return
+
+            # Process stream events
+            tool_use_blocks = []
+            current_tool_use = None
+            tool_input_json = ""
+            has_tool_use = False
+            text_buffer = []
+
+            for event in response["stream"]:
+                if "contentBlockStart" in event:
+                    start = event["contentBlockStart"].get("start", {})
+                    if "toolUse" in start:
+                        has_tool_use = True
+                        current_tool_use = {
+                            "toolUseId": start["toolUse"]["toolUseId"],
+                            "name": start["toolUse"]["name"],
+                        }
+                        tool_input_json = ""
+
+                elif "contentBlockDelta" in event:
+                    delta = event["contentBlockDelta"]["delta"]
+                    if "text" in delta:
+                        yield delta["text"]
+                        text_buffer.append(delta["text"])
+                    elif "toolUse" in delta:
+                        tool_input_json += delta["toolUse"].get("input", "")
+
+                elif "contentBlockStop" in event:
+                    if current_tool_use:
+                        try:
+                            current_tool_use["input"] = json_mod.loads(tool_input_json) if tool_input_json else {}
+                        except (json_mod.JSONDecodeError, ValueError):
+                            current_tool_use["input"] = {}
+                        tool_use_blocks.append(current_tool_use)
+                        current_tool_use = None
+
+            if has_tool_use and tool_use_blocks:
+                # Build assistant message
+                assistant_content = []
+                if text_buffer:
+                    assistant_content.append({"text": "".join(text_buffer)})
+                for tu in tool_use_blocks:
+                    assistant_content.append({"toolUse": tu})
+                messages.append({"role": "assistant", "content": assistant_content})
+
+                # Execute tools and continue
+                log.info(f"🔧 Stream tool calls: {[t['name'] for t in tool_use_blocks]}")
+                tool_results = []
+                for tu in tool_use_blocks:
+                    result = self._tool_executor.execute(tu["name"], tu["input"])
+                    tool_results.append({
+                        "toolResult": {
+                            "toolUseId": tu["toolUseId"],
+                            "content": [{"json": result}],
+                        }
+                    })
+                messages.append({"role": "user", "content": tool_results})
+            else:
+                return

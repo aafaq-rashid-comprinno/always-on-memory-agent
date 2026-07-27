@@ -16,8 +16,12 @@ from src.db.repository import MemoryRepository
 from src.tools.definitions import TOOL_MAP
 from src.tools.executor import ToolExecutor
 from src.agents.client import BedrockClient
+from src.agents.chunking import chunk_text, compute_text_hash
 
 log = logging.getLogger("memory-agent")
+
+# Max chars per chunk for ingestion
+CHUNK_SIZE = 3000
 
 
 class MemoryAgent:
@@ -35,17 +39,50 @@ class MemoryAgent:
     # ─── Core Agent Operations ─────────────────────────────────
 
     def ingest(self, text: str, source: str = "") -> str:
-        """Ingest text into memory."""
+        """Ingest text into memory. Auto-chunks large inputs."""
+        # Deduplication check
+        text_hash = compute_text_hash(text)
+        if self._repo.is_duplicate(text_hash):
+            log.info(f"⏭️  Skipping duplicate: {source or 'unknown'}")
+            return "Skipped: duplicate content already stored."
+
+        # Chunk large inputs
+        chunks = chunk_text(text, max_chars=CHUNK_SIZE)
+
+        if len(chunks) == 1:
+            # Single chunk - normal ingest
+            result = self._ingest_single(chunks[0], source, text_hash)
+        else:
+            # Multi-chunk - ingest each with part indicator
+            log.info(f"📄 Chunking input into {len(chunks)} parts ({len(text)} chars)")
+            results = []
+            for i, chunk in enumerate(chunks, 1):
+                chunk_source = f"{source} (part {i}/{len(chunks)})"
+                chunk_hash = compute_text_hash(chunk)
+                if not self._repo.is_duplicate(chunk_hash):
+                    r = self._ingest_single(chunk, chunk_source, chunk_hash)
+                    results.append(r)
+            result = f"Stored {len(results)} chunks from {source}."
+
+        return result
+
+    def _ingest_single(self, text: str, source: str, text_hash: str) -> str:
+        """Ingest a single chunk of text."""
         msg = (
             f"Remember this information (source: {source}):\n\n{text}"
             if source
             else f"Remember this:\n\n{text}"
         )
-        return self._client.invoke(
+        response = self._client.invoke(
             system_prompt=SYSTEM_PROMPTS["ingest"],
             user_message=msg,
             tools=TOOL_MAP["ingest"],
         )
+
+        # Store the hash for dedup tracking (even if model didn't call store_memory)
+        self._repo.record_hash(text_hash)
+
+        return response
 
     def ingest_image(self, file_path: Path) -> str:
         """Ingest an image file via multimodal."""
@@ -101,12 +138,37 @@ class MemoryAgent:
         )
 
     def query(self, question: str) -> str:
-        """Query the memory store."""
+        """Query the memory store with FTS pre-filtering."""
+        prompt = self._build_query_prompt(question)
         return self._client.invoke(
             system_prompt=SYSTEM_PROMPTS["query"],
-            user_message=f"Based on my memories, answer: {question}",
+            user_message=prompt,
             tools=TOOL_MAP["query"],
         )
+
+    def query_stream(self, question: str):
+        """Query with streaming response. Yields text chunks."""
+        prompt = self._build_query_prompt(question)
+        return self._client.invoke_stream(
+            system_prompt=SYSTEM_PROMPTS["query"],
+            user_message=prompt,
+            tools=TOOL_MAP["query"],
+        )
+
+    def _build_query_prompt(self, question: str) -> str:
+        """Build the query prompt with FTS pre-filtering."""
+        relevant = self._repo.search_memories(question, limit=20)
+
+        if relevant["count"] > 0:
+            context = "\n".join(
+                f"[Memory {m['id']}] {m['summary']} (entities: {', '.join(m.get('entities', []))})"
+                for m in relevant["memories"]
+            )
+            return (
+                f"Based on these relevant memories, answer: {question}\n\n"
+                f"Relevant memories:\n{context}"
+            )
+        return f"Based on my memories, answer: {question}"
 
     def status(self) -> str:
         """Get a human-readable status report."""

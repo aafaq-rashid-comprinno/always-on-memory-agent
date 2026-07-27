@@ -1,5 +1,6 @@
 """
 Memory repository - all database CRUD operations.
+Includes deduplication and full-text search (FTS5).
 """
 
 import json
@@ -30,8 +31,15 @@ class MemoryRepository:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (source, raw_text, summary, json.dumps(entities), json.dumps(topics), importance, now),
         )
-        db.commit()
         memory_id = cursor.lastrowid
+
+        # Update FTS index
+        db.execute(
+            "INSERT INTO memories_fts (rowid, summary, entities, topics) VALUES (?, ?, ?, ?)",
+            (memory_id, summary, " ".join(entities), " ".join(topics)),
+        )
+
+        db.commit()
         db.close()
         return {"memory_id": memory_id, "status": "stored", "summary": summary}
 
@@ -74,9 +82,53 @@ class MemoryRepository:
             db.close()
             return {"status": "not_found", "memory_id": memory_id}
         db.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+        db.execute("DELETE FROM memories_fts WHERE rowid = ?", (memory_id,))
         db.commit()
         db.close()
         return {"status": "deleted", "memory_id": memory_id}
+
+    # ─── Full-Text Search ──────────────────────────────────────
+
+    def search_memories(self, query: str, limit: int = 20) -> dict:
+        """
+        Search memories using FTS5 full-text search.
+        Falls back to LIKE if FTS returns no results.
+        """
+        db = get_db()
+
+        # Build FTS query - split into terms, join with OR
+        terms = [t.strip() for t in query.split() if len(t.strip()) > 2]
+        if not terms:
+            # No useful search terms, return recent memories
+            rows = db.execute(
+                "SELECT * FROM memories ORDER BY importance DESC, created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            fts_query = " OR ".join(terms)
+            try:
+                rows = db.execute(
+                    """
+                    SELECT m.* FROM memories m
+                    JOIN memories_fts fts ON m.id = fts.rowid
+                    WHERE memories_fts MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    (fts_query, limit),
+                ).fetchall()
+            except Exception:
+                # FTS failed (malformed query), fall back to LIKE
+                like_pattern = f"%{terms[0]}%"
+                rows = db.execute(
+                    "SELECT * FROM memories WHERE summary LIKE ? OR entities LIKE ? OR topics LIKE ? "
+                    "ORDER BY importance DESC LIMIT ?",
+                    (like_pattern, like_pattern, like_pattern, limit),
+                ).fetchall()
+
+        memories = [self._row_to_memory(r) for r in rows]
+        db.close()
+        return {"memories": memories, "count": len(memories)}
 
     # ─── Consolidations ────────────────────────────────────────
 
@@ -143,6 +195,26 @@ class MemoryRepository:
         db.close()
         return {"consolidations": result, "count": len(result)}
 
+    # ─── Deduplication ─────────────────────────────────────────
+
+    def is_duplicate(self, text_hash: str) -> bool:
+        """Check if content with this hash has already been ingested."""
+        db = get_db()
+        row = db.execute("SELECT 1 FROM content_hashes WHERE hash = ?", (text_hash,)).fetchone()
+        db.close()
+        return row is not None
+
+    def record_hash(self, text_hash: str) -> None:
+        """Record a content hash to prevent future duplicates."""
+        db = get_db()
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute(
+            "INSERT OR IGNORE INTO content_hashes (hash, created_at) VALUES (?, ?)",
+            (text_hash, now),
+        )
+        db.commit()
+        db.close()
+
     # ─── Stats & Management ────────────────────────────────────
 
     def get_stats(self) -> dict:
@@ -169,6 +241,8 @@ class MemoryRepository:
         db.execute("DELETE FROM memories")
         db.execute("DELETE FROM consolidations")
         db.execute("DELETE FROM processed_files")
+        db.execute("DELETE FROM content_hashes")
+        db.execute("DELETE FROM memories_fts")
         db.commit()
         db.close()
 

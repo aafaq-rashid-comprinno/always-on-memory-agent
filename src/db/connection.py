@@ -33,6 +33,18 @@ CREATE TABLE IF NOT EXISTS processed_files (
     path TEXT PRIMARY KEY,
     processed_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS content_hashes (
+    hash TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+    summary,
+    entities,
+    topics,
+    content=''
+);
 """
 
 

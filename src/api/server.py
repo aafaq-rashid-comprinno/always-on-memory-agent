@@ -2,6 +2,8 @@
 HTTP API server using aiohttp.
 """
 
+import asyncio
+
 from aiohttp import web
 
 from src.agents.memory_agent import MemoryAgent
@@ -22,6 +24,7 @@ def create_app(agent: MemoryAgent) -> web.Application:
     app.router.add_get("/status", handle_status)
     app.router.add_get("/memories", handle_memories)
     app.router.add_get("/query", handle_query)
+    app.router.add_get("/query/stream", handle_query_stream)
     app.router.add_post("/ingest", handle_ingest)
     app.router.add_post("/consolidate", handle_consolidate)
     app.router.add_post("/delete", handle_delete)
@@ -113,3 +116,37 @@ async def handle_clear(request: web.Request) -> web.Response:
     agent: MemoryAgent = request.app["agent"]
     result = agent.clear_all()
     return web.json_response(result)
+
+
+async def handle_query_stream(request: web.Request) -> web.StreamResponse:
+    """Stream query response via Server-Sent Events (SSE)."""
+    q = request.query.get("q", "").strip()
+    if not q:
+        return web.json_response({"error": "missing ?q= parameter"}, status=400)
+
+    agent: MemoryAgent = request.app["agent"]
+
+    response = web.StreamResponse(
+        status=200,
+        reason="OK",
+        headers={
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+    await response.prepare(request)
+
+    # Run streaming in thread pool (boto3 is sync)
+    def stream_generator():
+        return list(agent.query_stream(q))
+
+    chunks = await asyncio.get_event_loop().run_in_executor(None, stream_generator)
+
+    for chunk in chunks:
+        data = f"data: {chunk}\n\n"
+        await response.write(data.encode("utf-8"))
+
+    await response.write(b"data: [DONE]\n\n")
+    await response.write_eof()
+    return response
