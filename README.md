@@ -205,7 +205,6 @@ src/
 | [Use Cases](docs/01-use-case.md) | 6 detailed scenarios with step-by-step examples |
 | [Solution](docs/02-solution.md) | Technical approach, why not RAG, data flow |
 | [Architecture](docs/03-architecture.md) | Module layers, DB schema, concurrency model |
-| [Challenges](docs/04-challenges.md) | 10 known limitations with mitigations |
 | [Research Paper](docs/05-research-paper.md) | Academic treatment with evaluation results |
 
 ## AWS Prerequisites
