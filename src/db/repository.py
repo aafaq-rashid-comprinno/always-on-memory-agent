@@ -242,7 +242,9 @@ class MemoryRepository:
         db.execute("DELETE FROM consolidations")
         db.execute("DELETE FROM processed_files")
         db.execute("DELETE FROM content_hashes")
-        db.execute("DELETE FROM memories_fts")
+        # Rebuild FTS index (can't DELETE from contentless FTS5)
+        db.execute("DROP TABLE IF EXISTS memories_fts")
+        db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(summary, entities, topics, content='')")
         db.commit()
         db.close()
 
