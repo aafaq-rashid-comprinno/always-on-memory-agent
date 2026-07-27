@@ -82,7 +82,9 @@ class MemoryRepository:
             db.close()
             return {"status": "not_found", "memory_id": memory_id}
         db.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
-        db.execute("DELETE FROM memories_fts WHERE rowid = ?", (memory_id,))
+        # Note: can't delete from contentless FTS5 table.
+        # FTS index becomes stale for this row but won't return it since
+        # the JOIN with memories table filters it out.
         db.commit()
         db.close()
         return {"status": "deleted", "memory_id": memory_id}
