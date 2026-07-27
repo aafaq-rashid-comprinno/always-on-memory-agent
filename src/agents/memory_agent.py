@@ -188,6 +188,10 @@ class MemoryAgent:
         """Get all memories as structured data."""
         return self._repo.get_all_memories()
 
+    def get_consolidations(self) -> dict:
+        """Get all consolidation insights."""
+        return self._repo.get_consolidation_history()
+
     def delete_memory(self, memory_id: int) -> dict:
         """Delete a specific memory."""
         return self._repo.delete_memory(memory_id)

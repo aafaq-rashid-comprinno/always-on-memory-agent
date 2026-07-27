@@ -23,6 +23,7 @@ def create_app(agent: MemoryAgent) -> web.Application:
     app.router.add_get("/health", handle_health)
     app.router.add_get("/status", handle_status)
     app.router.add_get("/memories", handle_memories)
+    app.router.add_get("/consolidations", handle_consolidations)
     app.router.add_get("/query", handle_query)
     app.router.add_get("/query/stream", handle_query_stream)
     app.router.add_post("/ingest", handle_ingest)
@@ -57,6 +58,13 @@ async def handle_memories(request: web.Request) -> web.Response:
     """List all memories."""
     agent: MemoryAgent = request.app["agent"]
     data = agent.get_all_memories()
+    return web.json_response(data)
+
+
+async def handle_consolidations(request: web.Request) -> web.Response:
+    """List all consolidation insights."""
+    agent: MemoryAgent = request.app["agent"]
+    data = agent.get_consolidations()
     return web.json_response(data)
 
 
