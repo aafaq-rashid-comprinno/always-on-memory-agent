@@ -1,300 +1,384 @@
-# Use Cases: Detailed Scenarios
+# Industry Use Cases
 
-## Overview
+## 1. Financial Services: Regulatory Compliance Memory
 
-The Always-On Memory Agent solves the **fragmented knowledge problem** - where important information is scattered across files, conversations, tools, and time, making it impossible to synthesize without deliberate manual effort.
+### Industry Context
 
----
+Financial institutions handle thousands of regulatory updates annually from SEC, FINRA, OCC, CFPB, and international bodies. Compliance teams struggle to correlate new rules with existing obligations, identify conflicting requirements, and assess organizational impact.
 
-## Use Case 1: Personal Knowledge Management
+### Problem
 
-### Scenario
+- 500+ regulatory updates per quarter across 12 jurisdictions
+- Compliance officers spend 60% of time on manual cross-referencing
+- Missed connections between regulations lead to $2-50M in fines
+- New regulations often contradict or supersede existing ones — without explicit mention
 
-A senior engineer reads 5-10 technical articles per week, attends 3 meetings, reviews multiple PRs, and has Slack discussions. After a month, they cannot recall:
-- Which article mentioned that specific benchmark
-- What decision was made in which meeting
-- How a Slack thread conclusion relates to a design doc
-
-### How the Agent Helps
-
-```
-Week 1:
-  inbox/ ← article-llm-benchmarks.md
-  inbox/ ← meeting-notes-monday.md
-  POST /ingest ← "Slack: team agreed on gRPC over REST for internal services"
-
-Week 2:
-  inbox/ ← article-grpc-performance.md
-  inbox/ ← sprint-retro-notes.md
-
-Consolidation discovers:
-  Insight: "The gRPC decision (Slack) is validated by the benchmarks
-            showing 3x throughput improvement (article). The sprint retro
-            mentions API latency as a pain point - gRPC migration directly
-            addresses this."
-
-Week 3:
-  Query: "Why did we choose gRPC?"
-  Answer: "Based on [Memory 5] the team agreed on gRPC over REST.
-           This aligns with [Memory 8] showing 3x throughput gains.
-           The decision addresses the latency issues from [Memory 12]."
-```
-
-### Value
-
-- **Instant institutional memory**: New team members can query "what decisions have been made about X?"
-- **Connection discovery**: Links between separate conversations surface automatically
-- **Decision traceability**: Every conclusion is traced to its source
-
----
-
-## Use Case 2: Research Synthesis
-
-### Scenario
-
-A researcher is exploring "AI agents for software engineering." They read 20 papers over 2 weeks. Each paper individually makes sense, but the field-level patterns - which approaches are converging, where contradictions exist, what gaps remain - require hours of manual synthesis.
-
-### How the Agent Helps
-
-```
-Ingest papers (as text/PDF):
-  Paper 1: "CodeAgent uses tool-augmented LLMs for code generation"
-  Paper 2: "SWE-bench shows agents solve 12% of real GitHub issues"
-  Paper 3: "Reflexion adds self-critique loops, improving success 2x"
-  Paper 4: "AgentCoder separates planning from execution"
-  Paper 5: "Cursor/Copilot usage data: 62% of AI coding is autocomplete"
-
-Consolidation cycle 1:
-  Insight: "There's a split between 'autocomplete' AI (Paper 5, 62% usage)
-            and 'agentic' AI (Papers 1-4). The agentic approach has potential
-            (Paper 3 shows 2x improvement with reflection) but current success
-            rates are low (Paper 2: only 12%)."
-
-  Connection: Paper 3 ↔ Paper 4: "Both separate reasoning from action -
-              Reflexion via self-critique, AgentCoder via plan/execute split."
-
-Consolidation cycle 2 (after more papers):
-  Insight: "The convergence point is: planning + tool use + self-verification.
-            Papers 1, 3, 4, 7, 9 all arrive at this independently. Gap:
-            none address multi-file changes well."
-
-Query: "What's the state of AI coding agents?"
-Answer: "Based on 12 ingested papers:
-         - Current success: 12% on real issues [Paper 2]
-         - Key pattern: plan → execute → verify [Papers 1,3,4,7,9]
-         - Dominant usage is still autocomplete (62%) [Paper 5]
-         - Open gap: multi-file reasoning [no paper addresses this]"
-```
-
-### Value
-
-- **Literature review acceleration**: Weeks of synthesis in minutes
-- **Gap identification**: What hasn't been studied emerges from what has
-- **Contradiction detection**: Conflicting claims across papers are surfaced
-- **Living review**: New papers integrate with existing knowledge automatically
-
----
-
-## Use Case 3: Project Context Preservation
-
-### Scenario
-
-A product team works on a platform for 6 months. Context exists in:
-- Design docs (Google Docs/Confluence)
-- Meeting recordings (transcripts)
-- Slack decisions
-- JIRA ticket descriptions
-- Architecture Decision Records (ADRs)
-- Customer feedback emails
-
-When a new engineer joins, or when revisiting a decision 3 months later, the context is lost across 15 different tools.
-
-### How the Agent Helps
+### How the Agent Solves This
 
 ```
 Continuous ingestion:
-  inbox/ ← adr-001-database-choice.md
-  inbox/ ← customer-feedback-jan.md
-  POST /ingest ← "Sprint planning: prioritize auth migration, defer search"
-  inbox/ ← incident-report-2026-01-15.md
-  POST /ingest ← "Architecture review: agreed to decompose monolith into 3 services"
+  inbox/ ← sec-rule-2026-03-amendments.pdf
+  inbox/ ← finra-notice-2026-12.md
+  POST /ingest ← "OCC Bulletin: Updated requirements for third-party risk management"
+  POST /ingest ← "Internal audit finding: current vendor assessment doesn't cover AI vendors"
 
-Over 3 months, consolidation produces:
+Consolidation discovers:
+  Insight: "The new OCC third-party risk bulletin (March 2026) explicitly
+  includes AI/ML vendors in scope. Our internal audit (Q1) already identified
+  this gap. FINRA Notice 2026-12 adds reporting requirements for AI-driven
+  trading decisions. Combined impact: our vendor management framework needs
+  AI-specific controls by Q3, and trading desk needs new disclosure templates."
 
-  Insight 1: "Auth migration was prioritized (Sprint 3) due to the security
-              incident (Jan 15). Customer feedback confirms auth UX is top pain point."
-
-  Insight 2: "The monolith decomposition (Architecture Review) contradicts
-              the database choice ADR which assumed single-service deployment.
-              ADR-001 may need revision."
-
-  Insight 3: "Search was deferred 3 times (Sprint 3, 5, 7). Customer feedback
-              mentions search in 40% of complaints. This is likely under-prioritized."
-
-New engineer asks: "Why is auth the priority?"
-Answer: "Auth was prioritized in Sprint 3 [Memory 15] following a security
-         incident on Jan 15 [Memory 22]. Customer feedback [Memory 8]
-         confirms auth UX is the top pain point. The migration addresses
-         both security and UX."
+  Connections:
+    OCC Bulletin ↔ Internal Audit: "Same gap identified independently"
+    OCC Bulletin ↔ FINRA Notice: "Converging on AI vendor oversight"
+    
+Query: "What is our exposure to the new AI regulations?"
+Answer: "Three converging requirements create urgency:
+  1. OCC requires AI vendor risk assessments [Memory 3] — deadline Q3
+  2. FINRA requires AI trading disclosures [Memory 2] — effective July
+  3. Internal audit already flagged the vendor gap [Memory 4]
+  Recommended: prioritize AI-specific vendor controls to satisfy all three."
 ```
 
-### Value
+### Business Impact
 
-- **Onboarding acceleration**: New team members get context without 10 meetings
-- **Decision archaeology**: "Why did we do X?" has a traceable answer
-- **Contradiction detection**: Conflicting decisions are flagged
-- **Pattern surfacing**: Under-prioritized issues emerge from repeated deferral
-
----
-
-## Use Case 4: Executive Intelligence Briefing
-
-### Scenario
-
-A CTO reads market reports, competitor announcements, internal metrics, and board materials. They need a synthesized worldview, not individual data points.
-
-### How the Agent Helps
-
-```
-Weekly ingestion:
-  inbox/ ← competitor-funding-announcement.md
-  inbox/ ← internal-metrics-q2.md
-  inbox/ ← market-report-ai-spending.md
-  inbox/ ← board-meeting-notes.md
-  POST /ingest ← "Customer churn increased 5% - exit interviews cite pricing"
-
-Consolidation:
-  Insight: "Competitor raised $50M (funding announcement) while our churn
-            is pricing-driven (exit interviews). Market report shows 40% YoY
-            AI spending growth. Risk: competitor can undercut on pricing with
-            new capital. Board approved margin reduction authority - this
-            should be exercised proactively."
-
-Monday morning query: "What should I be worried about this week?"
-Answer: "Three concerns based on recent information:
-         1. Pricing pressure: Competitor fundraise + our churn data suggest
-            immediate pricing action needed [Memory 3, 7]
-         2. Q2 metrics show growth deceleration - board expects explanation [Memory 5, 8]
-         3. AI spending surge creates acquisition opportunity but our
-            engineering bandwidth is constrained [Memory 4, 6]"
-```
-
-### Value
-
-- **Signal from noise**: 50 inputs become 3 actionable insights
-- **Cross-domain synthesis**: Market + internal + competitive intelligence combined
-- **Proactive alerting**: Patterns surface before they become crises
-- **Preparation**: "Brief me for tomorrow's meeting" uses all relevant context
-
----
-
-## Use Case 5: Learning and Skill Development
-
-### Scenario
-
-A developer is learning Kubernetes. They read docs, watch tutorials, solve problems, and take notes. After 2 months, knowledge is fragmented across bookmarks, notes, and fading memory.
-
-### How the Agent Helps
-
-```
-Learning journey:
-  inbox/ ← kubectl-full-guide.md
-  POST /ingest ← "Today I learned: pods are the smallest deployable unit"
-  POST /ingest ← "Confusion: difference between Deployment and StatefulSet"
-  inbox/ ← k8s-networking-notes.md
-  POST /ingest ← "Solved: my service wasn't routing because selector didn't match labels"
-
-Consolidation:
-  Insight: "Networking issues (routing problem solved, networking notes) connect
-            to the selector/label system. The kubectl guide covers both but
-            the mental model is: labels are the addressing system for everything."
-
-  Insight: "Deployments vs StatefulSets (earlier confusion): Deployments for
-            stateless (web servers), StatefulSets for stateful (databases).
-            The networking notes show StatefulSets get stable DNS names."
-
-Query: "Explain k8s networking to me"
-Answer: "From your learning:
-         - Everything routes via label selectors [Memory 5, solved bug]
-         - Services find pods by matching selectors to labels [Memory 3]
-         - StatefulSets get stable DNS: pod-0.service.namespace [Memory 7]
-         - Key insight: labels are the addressing system for everything
-           [Consolidation 2]"
-```
-
-### Value
-
-- **Spaced repetition without flashcards**: Query reinforces learning
-- **Gap identification**: "What don't I understand yet?" uses consolidation gaps
-- **Personalized explanations**: Answers reference YOUR bugs and AHA moments
-- **Progress tracking**: Memory growth over time shows learning trajectory
-
----
-
-## Use Case 6: Multi-Source Monitoring
-
-### Scenario
-
-A DevOps engineer monitors system health from multiple sources: CloudWatch metrics, incident reports, deployment logs, and team discussions. Patterns that span sources are invisible.
-
-### How the Agent Helps
-
-```
-Continuous feed:
-  POST /ingest ← "CloudWatch: API latency p99 increased from 200ms to 450ms"
-  POST /ingest ← "Deployment: v2.4.1 released with new caching layer"
-  POST /ingest ← "Slack: users reporting slow dashboard loads"
-  POST /ingest ← "CloudWatch: cache hit rate dropped from 85% to 40%"
-
-Consolidation (immediate, triggered manually):
-  Insight: "Deployment v2.4.1 introduced new caching but cache hit rate
-            dropped 45 percentage points. This correlates with the latency
-            spike (200ms → 450ms) and user complaints. The new caching
-            layer likely has a bug - cold cache or wrong invalidation."
-
-  Connection: Deployment → Cache drop → Latency spike → User complaints
-              (single root cause chain)
-
-Query: "What caused the latency spike?"
-Answer: "Root cause chain:
-         1. v2.4.1 deployed with new caching [Memory 2]
-         2. Cache hit rate dropped 85% → 40% [Memory 4]
-         3. This caused p99 latency to spike to 450ms [Memory 1]
-         4. Users are affected (slow dashboard) [Memory 3]
-         Likely fix: investigate cache invalidation in v2.4.1"
-```
-
-### Value
-
-- **Cross-source correlation**: Connects metrics + deploys + complaints automatically
-- **Root cause chains**: Consolidation builds causal chains across signals
-- **Faster MTTR**: Pattern is identified in minutes, not hours of log diving
-- **Institutional knowledge**: "Last time latency spiked, what was the cause?"
-
----
-
-## Anti-Patterns (When NOT to Use)
-
-| Scenario | Better Alternative |
-|---|---|
-| Real-time alerting (sub-second) | CloudWatch Alarms, PagerDuty |
-| Searching through 10M documents | Elasticsearch, OpenSearch |
-| Exact fact lookup ("What's the API key?") | Secrets manager, wiki |
-| Structured data analysis (SQL queries) | Database + BI tool |
-| Code search ("find all usages of X") | IDE, ripgrep, GitHub search |
-| Collaboration (shared editing) | Google Docs, Notion |
-
-The agent is best for **synthesis across sources over time** - not search, not storage, not real-time.
-
----
-
-## Success Metrics by Use Case
-
-| Use Case | Primary Metric | Target |
+| Metric | Before | After |
 |---|---|---|
-| Knowledge management | Time to answer "why did we decide X?" | <30 seconds |
-| Research synthesis | Papers until first novel insight | <5 papers |
-| Project context | New engineer productive time | Reduce by 50% |
-| Executive briefing | Insights per weekly review | 3-5 actionable |
-| Learning | Knowledge retention after 30 days | >70% |
-| Monitoring | Time to identify root cause | <5 minutes |
+| Time to assess regulatory impact | 2-3 weeks | Same day |
+| Cross-regulation conflicts caught | ~40% | ~90% |
+| Compliance team productivity | Baseline | 3x on cross-referencing |
+| Regulatory fines from missed connections | $5M avg/year | Near zero |
+
+---
+
+## 2. Healthcare: Clinical Knowledge Integration
+
+### Industry Context
+
+Hospitals and health systems generate massive amounts of clinical data — patient outcomes, drug interaction reports, clinical trial results, protocol updates, and adverse event notifications. Connecting signals across these silos saves lives.
+
+### Problem
+
+- Clinical protocols updated 200+ times/year across 30 specialties
+- Drug interaction databases lag behind published research by 6-18 months
+- Adverse event signals scattered across incident reports, nursing notes, pharmacy alerts
+- Physicians spend 4+ hours/week searching for protocol changes
+
+### How the Agent Solves This
+
+```
+Continuous ingestion:
+  POST /ingest ← "Adverse event report: Patient on Drug A + Drug B developed
+                  cardiac arrhythmia. No known interaction in current database."
+  inbox/ ← lancet-study-2026-drug-a-cardiac-effects.pdf
+  POST /ingest ← "Pharmacy alert: Drug B recall in lot #4521 for QT prolongation"
+  inbox/ ← updated-cardiology-protocol-v12.md
+
+Consolidation discovers:
+  Insight: "CRITICAL SAFETY SIGNAL: Three independent sources indicate Drug A +
+  Drug B combination risk:
+  1. Adverse event report (direct patient harm observed)
+  2. Lancet study identifies Drug A cardiac mechanism
+  3. Pharmacy recall confirms Drug B QT prolongation
+  The updated cardiology protocol does NOT address this combination.
+  Recommend: immediate protocol addendum and pharmacy system alert."
+
+Query: "What cardiac risks have emerged this month?"
+Answer: "Emerging signal: Drug A + Drug B combination [Memory 1, 2, 3]
+  - One adverse event (arrhythmia) already occurred
+  - Mechanism confirmed by Lancet study (Drug A cardiac effects)
+  - Compounded by Drug B lot recall (QT prolongation)
+  - Current protocol v12 has no contraindication for this combination
+  Action required: update drug interaction database, notify prescribers."
+```
+
+### Business Impact
+
+| Metric | Before | After |
+|---|---|---|
+| Adverse event signal detection | Weeks to months | Hours |
+| Protocol update awareness | 60% of physicians within 30 days | 95% same-day |
+| Drug interaction discovery (novel) | Only after multiple events | After first signal |
+| Patient safety incidents (preventable) | Baseline | 40% reduction |
+
+---
+
+## 3. Manufacturing: Predictive Quality Intelligence
+
+### Industry Context
+
+Semiconductor and precision manufacturing facilities generate terabytes of sensor data, quality reports, maintenance logs, and supplier certifications. Defect root causes often span multiple systems and time periods.
+
+### Problem
+
+- Defect root cause analysis takes 3-14 days
+- Quality issues correlate across shift reports, equipment logs, and material certificates
+- Same defect patterns recur because institutional knowledge is lost during shift changes
+- $500K-5M cost per day of production line downtime
+
+### How the Agent Solves This
+
+```
+Continuous ingestion (automated from MES/SCADA):
+  POST /ingest ← "Shift report: Yield dropped 3% on Line 4, operator noticed
+                  slight vibration increase on spindle motor"
+  POST /ingest ← "Maintenance log: Spindle bearing replaced on Line 4 (scheduled)"
+  POST /ingest ← "Quality report: Lot 2026-07-240 has 2.1% defect rate
+                  (surface roughness out of spec)"
+  POST /ingest ← "Supplier cert: New coolant batch received, viscosity within spec
+                  but 5% lower than previous batch"
+  POST /ingest ← "Historical: Similar yield drop in Jan 2026 traced to coolant
+                  change + bearing wear combination"
+
+Consolidation discovers:
+  Insight: "PATTERN MATCH with January 2026 incident:
+  1. Bearing replacement changed spindle dynamics (vibration increase noted)
+  2. New coolant batch has 5% lower viscosity (within spec but borderline)
+  3. Combination of new bearing + thinner coolant = insufficient lubrication
+     at high RPM, causing surface roughness defects
+  4. This is the exact same failure mode as January.
+  Recommended: increase coolant flow rate by 8% for Line 4 post-bearing change."
+
+Query: "Why is Line 4 yield dropping?"
+Answer: "Root cause (high confidence, matches historical pattern [Memory 5]):
+  - New bearing + lower viscosity coolant = insufficient lubrication at speed
+  - Same failure as January 2026 [Memory 5]
+  - Fix: increase coolant flow 8% for 48 hours post-bearing replacement
+  - This avoids the 3-14 day investigation cycle entirely."
+```
+
+### Business Impact
+
+| Metric | Before | After |
+|---|---|---|
+| Root cause analysis time | 3-14 days | 4 hours (pattern match) |
+| Recurring defect incidents | 35% of quality events are repeats | <10% |
+| Production downtime cost saved | — | $2M/year (avoided investigations) |
+| Knowledge retention across shifts | Poor (tribal knowledge) | 100% (persistent memory) |
+
+---
+
+## 4. Legal: M&A Due Diligence Intelligence
+
+### Industry Context
+
+Mergers & acquisitions due diligence involves reviewing thousands of documents — contracts, financial statements, IP portfolios, litigation history, regulatory filings — across the target company. Missed connections between documents cost firms millions.
+
+### Problem
+
+- 10,000-50,000 documents per deal
+- 15-30 lawyers reviewing in parallel with limited cross-communication
+- Critical risks hidden in connections between innocuous-seeming documents
+- $10-100M in post-acquisition surprises from missed diligence
+
+### How the Agent Solves This
+
+```
+Team ingestion (each lawyer feeds their review stream):
+  POST /ingest ← "Contract review: Vendor X has unlimited liability clause
+                  in software license. Unusual for enterprise SaaS."
+  POST /ingest ← "IP review: Patent #12345 licensed from Vendor X,
+                  exclusive until 2028. Core to product line A."
+  POST /ingest ← "Litigation: Vendor X sued by CompetitorY for patent
+                  infringement (Patent #12345). Filed March 2026."
+  POST /ingest ← "Financial: Product line A generates 40% of target revenue"
+
+Consolidation discovers:
+  Insight: "CRITICAL DEAL RISK identified across 4 review streams:
+  1. Product line A (40% revenue) depends on Patent #12345 [Financial + IP]
+  2. Patent #12345 is licensed from Vendor X [IP review]
+  3. Vendor X is being sued for infringement ON that patent [Litigation]
+  4. If Vendor X loses, license may be invalidated
+  5. Unusual liability clause suggests Vendor X may already be hedging [Contract]
+  
+  Impact: 40% of target revenue at risk from single patent dispute.
+  This was invisible to any individual reviewer — only the cross-stream
+  connection reveals the compound risk."
+
+Query: "What are the top 3 deal risks?"
+Answer: "1. Patent dependency chain: 40% revenue at risk [Memory 1-4, Insight 1]
+  2. [other risks from memory]
+  3. [other risks from memory]
+  Priority: Patent #12345 risk requires immediate deep-dive before deal proceeds."
+```
+
+### Business Impact
+
+| Metric | Before | After |
+|---|---|---|
+| Cross-document risk discovery | 30% (limited by reviewer communication) | 85%+ |
+| Time to identify compound risks | Often post-close (too late) | During diligence |
+| Deal value adjustment accuracy | Baseline | 25% more accurate pricing |
+| Post-acquisition surprises | 3-5 material issues per deal | 0-1 |
+
+---
+
+## 5. Cybersecurity: Threat Intelligence Correlation
+
+### Industry Context
+
+Security Operations Centers (SOC) process thousands of alerts, threat feeds, vulnerability reports, and incident data daily. The signal-to-noise ratio is brutal. Advanced threats are identified by correlating weak signals across time and sources.
+
+### Problem
+
+- 10,000+ alerts per day, 95% are noise
+- APT campaigns unfold over weeks/months with individually innocuous indicators
+- Threat intel arrives from 15+ feeds in different formats
+- Mean time to detect (MTTD) for advanced threats: 197 days (IBM 2024)
+
+### How the Agent Solves This
+
+```
+Continuous ingestion (from SIEM, feeds, reports):
+  POST /ingest ← "SIEM: Unusual DNS queries to newly registered domain
+                  from finance-server-03. Low confidence alert."
+  POST /ingest ← "Threat feed: APT-41 campaign using DNS tunneling to
+                  NRDs registered in past 7 days. Target: financial services."
+  POST /ingest ← "Vuln scan: finance-server-03 running unpatched Log4j
+                  (CVE-2021-44228). Remediation overdue 90 days."
+  POST /ingest ← "HR system: New contractor started in finance dept last week.
+                  VPN access provisioned to finance subnet."
+
+Consolidation discovers:
+  Insight: "HIGH CONFIDENCE THREAT CORRELATION:
+  1. finance-server-03 querying newly registered domains [SIEM - weak signal alone]
+  2. APT-41 actively using DNS tunneling to NRDs against financial services [Intel]
+  3. Same server has unpatched Log4j — known APT-41 initial access vector [Vuln]
+  4. New contractor with finance access = potential insider or compromised credential
+  
+  Individual signals: low/medium confidence
+  Combined signal: HIGH confidence APT-41 indicator
+  
+  Recommended: isolate finance-server-03, audit contractor access,
+  deploy DNS sinkhole for identified NRDs."
+
+Query: "Is finance-server-03 compromised?"
+Answer: "Assessment: LIKELY COMPROMISED (high confidence)
+  Evidence chain:
+  - DNS tunneling behavior matches APT-41 TTP [Memory 1, 2]
+  - Unpatched Log4j provides initial access path [Memory 3]
+  - Timeline correlates with new contractor access [Memory 4]
+  Immediate actions: network isolation, forensic image, credential rotation."
+```
+
+### Business Impact
+
+| Metric | Before | After |
+|---|---|---|
+| Mean time to detect (MTTD) | 197 days | Hours (pattern correlation) |
+| Alert triage efficiency | 5% true positive rate | 40%+ (pre-correlated) |
+| SOC analyst investigation time | 4 hours per true positive | 30 minutes (context provided) |
+| Breach cost avoided | — | $4.5M average breach cost (IBM) |
+
+---
+
+## 6. Pharmaceutical: Drug Development Intelligence
+
+### Industry Context
+
+Drug development involves 10-15 years of research, clinical trials, regulatory interactions, and competitor intelligence. Knowledge fragments across hundreds of scientists, thousands of papers, and decades of internal data.
+
+### Problem
+
+- $2.6B average cost to bring a drug to market
+- 90% failure rate in clinical trials
+- Competitor intelligence arrives months after strategic decisions
+- Internal R&D silos mean the biology team doesn't see the regulatory team's signals
+
+### How the Agent Solves This
+
+```
+Cross-team ingestion:
+  POST /ingest ← "Clinical: Phase 2a shows 23% response rate for compound X
+                  in indication A. Below threshold for advancement."
+  POST /ingest ← "Biology: Biomarker Y correlates with response in preclinical
+                  models. 35% of patients in Phase 2a had high Biomarker Y."
+  POST /ingest ← "Competitor: PharmaCo presented Phase 1 data for similar MOA.
+                  Their trial uses Biomarker Y enrichment strategy."
+  POST /ingest ← "Regulatory: FDA guidance update allows biomarker-enriched
+                  trials with smaller N for accelerated approval."
+
+Consolidation discovers:
+  Insight: "COMPOUND X RESCUE STRATEGY:
+  1. Overall response (23%) below threshold — but this is diluted by non-responders
+  2. Biomarker Y predicts response — enriching for Biomarker Y+ patients would
+     yield ~60% response rate (23% / 0.35 subset)
+  3. Competitor already using this enrichment strategy (validates approach)
+  4. New FDA guidance enables smaller enriched trial with accelerated pathway
+  
+  Recommendation: Don't terminate compound X. Redesign Phase 2b as
+  Biomarker Y-enriched trial. Smaller N, faster timeline, higher
+  probability of success. Competitive pressure requires speed."
+
+Query: "Should we kill compound X?"
+Answer: "No. Recommend biomarker-enriched redesign [Memory 1-4]:
+  - Enriched population response: ~60% (well above threshold)
+  - FDA pathway available for smaller trial [Memory 4]
+  - Competitor validates the approach [Memory 3]
+  - Risk of termination: lose 3 years of work + $400M sunk cost
+  - Risk of enriched trial: 12 months + $50M to definitive answer"
+```
+
+### Business Impact
+
+| Metric | Before | After |
+|---|---|---|
+| Drug program terminations (premature) | 15% could have been rescued | <5% |
+| Time to competitive intelligence integration | 3-6 months | Same week |
+| Cross-functional insight generation | Quarterly reviews only | Continuous |
+| Cost savings per rescued program | — | $200-500M |
+
+---
+
+## Cross-Industry Pattern
+
+Every industry use case shares the same structure:
+
+```
+FRAGMENTED SIGNALS          →  CONSOLIDATION  →  COMPOUND INSIGHT
+(individually low-value)                         (high-value, actionable)
+
+Finance:  regulation + audit + notice     →  converging AI oversight requirement
+Health:   adverse event + study + recall  →  novel drug interaction signal
+Mfg:      vibration + coolant + history   →  known failure mode recurring
+Legal:    contract + patent + lawsuit     →  compound deal risk
+Cyber:    DNS + threat feed + vuln + HR   →  APT campaign in progress
+Pharma:   trial data + biomarker + FDA    →  rescue strategy for failing drug
+```
+
+The agent's value is **not** in storing information (any database does that). The value is in **automatically discovering connections that span sources, teams, and time** — connections that humans miss because no single person holds all the pieces.
+
+---
+
+## Deployment Patterns by Industry
+
+| Industry | Deployment | Database | Model | Compliance |
+|---|---|---|---|---|
+| Financial Services | Private VPC, no internet | Aurora PostgreSQL | Claude (Bedrock) | SOC 2, encrypt at rest |
+| Healthcare | HIPAA-compliant AWS | RDS PostgreSQL | Claude (Bedrock) | BAA, audit logging |
+| Manufacturing | On-premises Docker | SQLite (air-gapped) | Nova Lite | OT network isolated |
+| Legal | Client-specific instances | Separate DB per matter | Claude Sonnet | Privilege, data walls |
+| Cybersecurity | SOC-integrated, real-time | PostgreSQL + TimescaleDB | Claude Haiku | FedRAMP (GovCloud) |
+| Pharmaceutical | AWS GxP-validated | Aurora + S3 versioning | Claude | 21 CFR Part 11, audit trail |
+
+---
+
+## ROI Framework
+
+```
+Value = (Insights Discovered × Value Per Insight) − (LLM Cost + Infrastructure)
+
+Where:
+  Insights/month:        10-50 (depends on ingestion volume)
+  Value/insight:         $10K-$10M (depends on industry)
+  LLM cost:             $3-30/month
+  Infrastructure:        $0 (SQLite) to $50/month (managed Postgres)
+
+Conservative ROI:
+  10 insights × $10K average value = $100K/month
+  Cost: $50/month
+  ROI: 2000x
+```
+
+The asymmetry is extreme: the cost of finding one missed regulatory connection, one patient safety signal, or one deal risk dwarfs years of agent operation costs.
